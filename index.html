@@ -28,6 +28,9 @@
       background: radial-gradient(1200px 800px at 20% 10%, #f7efde 0%, #efe0c4 55%, #e8d7b9 100%);
       color: var(--text);
     }
+    .old-world-tiles img {
+      filter: sepia(0.45) saturate(0.8) contrast(1.05) brightness(1.05);
+    }
     header {
       padding: 16px 20px;
       border-bottom: 1px solid var(--border);
@@ -284,9 +287,10 @@
     map.getPane('watercoursePane').style.zIndex = 350;
     map.createPane('goldPane');
     map.getPane('goldPane').style.zIndex = 360;
-    const watercolor = L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg', {
-      maxZoom: 16,
-      attribution: '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+    const watercolor = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+      className: 'old-world-tiles'
     });
 
     const openTerrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
@@ -789,19 +793,6 @@
     }
 
 
-    async function loadGeoJsonParts(paths) {
-      const collections = await Promise.all(paths.map(async (path) => {
-        const resp = await fetch(path);
-        if (!resp.ok) throw new Error(`Missing ${path}`);
-        return await resp.json();
-      }));
-      const features = [];
-      for (const c of collections) {
-        if (c && Array.isArray(c.features)) features.push(...c.features);
-      }
-      return { type: 'FeatureCollection', features };
-    }
-
     async function loadWatercourses() {
       try {
         const waterInput = document.getElementById('waterFileInput');
@@ -810,10 +801,12 @@
           const text = await waterInput.files[0].text();
           data = JSON.parse(text);
         } else {
-          data = await loadGeoJsonParts([
-            'watercourses_part1.geojson',
-            'watercourses_part2.geojson'
-          ]);
+          const resp = await fetch('watercourses.geojson');
+          if (!resp.ok) {
+            setStatus('Watercourses not loaded (missing watercourses.geojson).');
+            return;
+          }
+          data = await resp.json();
         }
         if (watercourseLayer) map.removeLayer(watercourseLayer);
         watercourseLayer = L.geoJSON(data, {
@@ -843,10 +836,12 @@
 
     async function loadRoads() {
       try {
-        const data = await loadGeoJsonParts([
-          'roads_part1.geojson',
-          'roads_part2.geojson'
-        ]);
+        const resp = await fetch('roads.geojson');
+        if (!resp.ok) {
+          setStatus('Roads not loaded (missing roads.geojson).');
+          return;
+        }
+        const data = await resp.json();
         if (roadLayer) map.removeLayer(roadLayer);
         roadLayer = L.geoJSON(data, {
           style: (feature) => {
@@ -927,10 +922,11 @@
       try {
         if (!structuresData) {
           if (!structuresLoading) {
-            structuresLoading = loadGeoJsonParts([
-              'structures_part1.geojson',
-              'structures_part2.geojson'
-            ])
+            structuresLoading = fetch('structures_detailed.geojson')
+              .then((resp) => {
+                if (!resp.ok) throw new Error('Structures not loaded (missing structures_detailed.geojson).');
+                return resp.json();
+              })
               .then((data) => {
                 structuresData = data;
                 return data;
@@ -974,20 +970,9 @@
     }
 
     async function loadCsvText() {
-      const parts = [
-        'qld_geo_detailed_solid_centroids_part1.csv',
-        'qld_geo_detailed_solid_centroids_part2.csv'
-      ];
-      const texts = await Promise.all(parts.map(async (p) => {
-        const resp = await fetch(p);
-        if (!resp.ok) throw new Error('Failed to load CSV. Run a local server from the folder.');
-        return await resp.text();
-      }));
-      const t1 = texts[0];
-      const t2 = texts[1];
-      const idx = t2.indexOf('\n');
-      const t2Body = idx >= 0 ? t2.slice(idx + 1) : '';
-      return t1.trimEnd() + '\n' + t2Body;
+      const resp = await fetch('qld_geo_detailed_solid_centroids.csv');
+      if (!resp.ok) throw new Error('Failed to load CSV. Run a local server from the folder.');
+      return await resp.text();
     }
 
     function buildPopupHtml(row, distKm) {

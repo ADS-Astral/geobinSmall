@@ -95,7 +95,7 @@
       statusEl.textContent = msg;
     }
 
-    function rasterStyle(tiles, attribution) {
+    function rasterStyle(tiles, attribution, paint = {}) {
       return {
         version: 8,
         sources: {
@@ -107,7 +107,7 @@
           }
         },
         layers: [
-          { id: 'raster', type: 'raster', source: 'raster' }
+          { id: 'raster', type: 'raster', source: 'raster', paint }
         ]
       };
     }
@@ -132,8 +132,15 @@
         );
       }
       return rasterStyle(
-        'https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg',
-        '&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors'
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        '&copy; OpenStreetMap contributors',
+        {
+          'raster-saturation': -0.25,
+          'raster-contrast': 0.15,
+          'raster-brightness-min': 0.85,
+          'raster-brightness-max': 1.1,
+          'raster-hue-rotate': 5
+        }
       );
     }
 
@@ -231,37 +238,15 @@
     }
 
     async function loadCsvText() {
-      const parts = [
-        'qld_geo_detailed_solid_centroids_part1.csv',
-        'qld_geo_detailed_solid_centroids_part2.csv'
-      ];
-      const texts = await Promise.all(parts.map(async (p) => {
-        const resp = await fetch(p);
-        if (!resp.ok) throw new Error('Failed to load CSV. Run a local server from the folder.');
-        return await resp.text();
-      }));
-      const t1 = texts[0];
-      const t2 = texts[1];
-      const idx = t2.indexOf('\n');
-      const t2Body = idx >= 0 ? t2.slice(idx + 1) : '';
-      return t1.trimEnd() + '\n' + t2Body;
+      const resp = await fetch('qld_geo_detailed_solid_centroids.csv');
+      if (!resp.ok) throw new Error('Failed to load CSV. Run a local server from the folder.');
+      return await resp.text();
     }
 
     async function addWatercourses() {
-      const parts = [
-        'watercourses_part1.geojson',
-        'watercourses_part2.geojson'
-      ];
-      const collections = await Promise.all(parts.map(async (p) => {
-        const resp = await fetch(p);
-        if (!resp.ok) return null;
-        return await resp.json();
-      }));
-      const features = [];
-      for (const c of collections) {
-        if (c && Array.isArray(c.features)) features.push(...c.features);
-      }
-      const data = { type: 'FeatureCollection', features };
+      const resp = await fetch('watercourses.geojson');
+      if (!resp.ok) return;
+      const data = await resp.json();
       if (map.getSource('watercourses')) {
         map.getSource('watercourses').setData(data);
         map.setLayoutProperty('watercourses-line', 'visibility', 'visible');
