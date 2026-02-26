@@ -1,0 +1,1378 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoBin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bentham&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <style>
+    :root {
+      --bg: #efe5d0;
+      --panel: #f8f1e3;
+      --text: #2b2016;
+      --muted: #6f5a44;
+      --accent: #5e6b3a;
+      --accent-2: #9a6b3d;
+      --border: #d6c3a3;
+      --paper: #f4ead6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Bentham", "Times New Roman", serif;
+      background: radial-gradient(1200px 800px at 20% 10%, #f7efde 0%, #efe0c4 55%, #e8d7b9 100%);
+      color: var(--text);
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, #f8f0dc 0%, #efe0c2 100%);
+    }
+    header h1 {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+      letter-spacing: 0.2px;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .wrap {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
+    .panel {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--paper) 100%);
+      border: 1px solid var(--border);
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 8px 22px rgba(44, 30, 12, 0.12);
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input, select, button, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    #map {
+      width: 100%;
+      height: 78vh;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #e6d7bb;
+    }
+    #results {
+      margin-top: 10px;
+      max-height: 24vh;
+      overflow: auto;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      font-size: 12px;
+    }
+    #legend {
+      margin-top: 10px;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      font-size: 12px;
+    }
+    .legend-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      line-height: 1.1;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid #4a3a28;
+      flex: 0 0 auto;
+    }
+    .legend-line {
+      width: 24px;
+      height: 0;
+      border-top: 3px solid #4a3a28;
+      flex: 0 0 auto;
+    }
+    .legend-line.dashed {
+      border-top-style: dashed;
+    }
+    .legend-line.dotted {
+      border-top-style: dotted;
+    }
+    .legend-note {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .result-item {
+      padding: 6px 4px;
+      border-bottom: 1px dashed var(--border);
+      cursor: pointer;
+    }
+    .result-item:hover {
+      background: #f6efe4;
+    }
+    .badge {
+      display: inline-block;
+      background: #efe0c2;
+      color: #4f3a1f;
+      border: 1px solid #d2b48c;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 11px;
+      margin-right: 6px;
+    }
+    .creek-label {
+      background: rgba(248, 241, 227, 0.92);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: "Bentham", "Times New Roman", serif;
+      font-size: 11px;
+      padding: 2px 6px;
+      box-shadow: 0 2px 6px rgba(44, 30, 12, 0.15);
+    }
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+      #map { height: 60vh; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GeoBin</h1>
+    <p>Enter a rough latitude/longitude and keywords. The map will show matching locations within a radius.</p>
+  </header>
+
+  <div class="wrap">
+    <div class="panel">
+      <div style="margin-bottom: 10px;">
+        <label>Watercourses GeoJSON (optional)</label>
+        <input type="file" id="waterFileInput" accept=".geojson,.json" />
+        <div class="small">If empty, the app will try to load <code>watercourses.geojson</code> from the same folder.</div>
+      </div>
+
+      <div class="row" style="margin-bottom: 8px;">
+        <div>
+          <label>Latitude</label>
+          <input id="latInput" type="number" step="0.000001" placeholder="-17.5" />
+        </div>
+        <div>
+          <label>Longitude</label>
+          <input id="lonInput" type="number" step="0.000001" placeholder="145.5" />
+        </div>
+      </div>
+
+      <div style="margin-bottom: 8px;">
+        <label>Radius (km)</label>
+        <input id="radiusInput" type="number" step="1" value="50" />
+      </div>
+
+      <div style="margin-bottom: 8px;">
+        <label>Keywords (comma-separated)</label>
+        <input id="kwInput" type="text" placeholder="gold, quartz, alluvial" />
+      </div>
+
+      <div style="margin-bottom: 8px;">
+        <label>Keyword Match</label>
+        <select id="matchMode">
+          <option value="any">Any keyword</option>
+          <option value="all">All keywords</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 8px;">
+        <label>Map Style</label>
+        <select id="baseStyleSelect">
+          <option>Watercolor (Old World)</option>
+          <option>OpenTerrain</option>
+          <option>OpenStreetMap</option>
+          <option>Satellite</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 8px;" class="row">
+        <label style="grid-column: 1 / -1;">Layers</label>
+        <div>
+          <input type="checkbox" id="toggleCreeks" />
+          <label for="toggleCreeks">Creeks</label>
+        </div>
+        <div>
+          <input type="checkbox" id="toggleCreekNames" />
+          <label for="toggleCreekNames">Creek Names</label>
+        </div>
+        <div>
+          <input type="checkbox" id="toggleRoads" />
+          <label for="toggleRoads">Tracks / Roads</label>
+        </div>
+        <div>
+          <input type="checkbox" id="toggleStructures" />
+          <label for="toggleStructures">Faults / Dykes / Veins</label>
+        </div>
+        <div>
+          <input type="checkbox" id="toggleSatLabels" />
+          <label for="toggleSatLabels">Satellite Labels</label>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom: 8px;">
+        <button id="runBtn">Find Locations</button>
+        <button id="open3dBtn" type="button">Open 3D</button>
+      </div>
+      <div style="margin-bottom: 8px;">
+        <button id="testAllBtn" type="button">Test All Markers (Clustered)</button>
+      </div>
+      <div id="status" class="small"></div>
+
+      <div id="legend"></div>
+
+      <div id="results"></div>
+    </div>
+
+    <div class="panel">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const map = L.map('map').setView([-17.5, 145.5], 6);
+    map.createPane('watercoursePane');
+    map.getPane('watercoursePane').style.zIndex = 350;
+    map.createPane('goldPane');
+    map.getPane('goldPane').style.zIndex = 360;
+    const watercolor = L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg', {
+      maxZoom: 16,
+      attribution: '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+    });
+
+    const openTerrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17,
+      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org" target="_blank">OpenTopoMap</a>'
+    });
+
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+    });
+
+    const esriSat = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+    });
+
+    const esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18,
+      opacity: 0.8,
+      attribution: 'Labels &copy; Esri'
+    });
+
+    watercolor.addTo(map);
+
+    const baseLayers = {
+      'Watercolor (Old World)': watercolor,
+      'OpenTerrain': openTerrain,
+      'OpenStreetMap': osm,
+      'Satellite': esriSat
+    };
+
+    // Map style control moved to left dropdown; no top-right layer control.
+    let currentBaseName = 'Watercolor (Old World)';
+    const baseSelect = document.getElementById('baseStyleSelect');
+    map.on('baselayerchange', (e) => {
+      currentBaseName = e.name;
+      if (baseSelect) baseSelect.value = currentBaseName;
+    });
+    if (baseSelect) {
+      baseSelect.value = currentBaseName;
+      baseSelect.addEventListener('change', () => {
+        const name = baseSelect.value;
+        if (name === currentBaseName) return;
+        const nextLayer = baseLayers[name];
+        const currentLayer = baseLayers[currentBaseName];
+        if (currentLayer && map.hasLayer(currentLayer)) {
+          map.removeLayer(currentLayer);
+        }
+        if (nextLayer && !map.hasLayer(nextLayer)) {
+          nextLayer.addTo(map);
+        }
+        currentBaseName = name;
+        updateLegend();
+      });
+    }
+
+    let markersLayer = L.layerGroup().addTo(map);
+    let allClusterLayer = null;
+    let watercourseLayer = null;
+    let roadLayer = null;
+    let structureLayer = null;
+    let structuresData = null;
+    let structuresLoading = null;
+    let lastSearch = null;
+    let creekNamesOn = false;
+    let mouseTracking = true;
+    const markerIndex = new Map();
+    let radiusCircle = null;
+    let goldPoints = [];
+    let goldGrid = new Map();
+    let goldPointsLoaded = false;
+    let goldPointsLoading = null;
+    let goldSegmentLayer = null;
+    let bendLayer = null;
+    const GOLD_NEAR_M = 50;
+    const GOLD_SEGMENT_M = 30;
+    const GOLD_CELL_DEG = 0.002; // ~222m
+    const BEND_ANGLE_DEG = 35;
+    const BEND_SEARCH_M = 200;
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function parseKeywords(raw) {
+      return raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    }
+
+    const mineralPalette = {
+      gold: { fill: '#d4af37', stroke: '#8b6b20' },
+      ruby: { fill: '#b11226', stroke: '#6b0a1a' },
+      sapphire: { fill: '#1f5aa6', stroke: '#12305f' }
+    };
+
+    function findMinerals(text) {
+      const t = (text || '').toLowerCase();
+      const hits = [];
+      for (const m of Object.keys(mineralPalette)) {
+        const re = new RegExp(`\\b${m}\\b`);
+        if (re.test(t)) hits.push(m);
+      }
+      return hits;
+    }
+
+    function hashString(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h) + str.charCodeAt(i);
+        h |= 0;
+      }
+      return h;
+    }
+
+    function rainbowColors(seed) {
+      const hue = Math.abs(hashString(seed)) % 360;
+      return {
+        fill: `hsl(${hue}, 70%, 55%)`,
+        stroke: `hsl(${(hue + 40) % 360}, 70%, 35%)`
+      };
+    }
+
+    function pickMarkerColors(row, searchKeywords) {
+      const searchMinerals = searchKeywords.filter(k => k in mineralPalette);
+      const rowMinerals = findMinerals(rowText(row));
+      if (searchMinerals.length === 0) {
+        if (rowMinerals.length === 1) return mineralPalette[rowMinerals[0]];
+        return null;
+      }
+      const matched = rowMinerals.filter(m => searchMinerals.includes(m));
+      if (matched.length === 1) return mineralPalette[matched[0]];
+      if (matched.length > 1 && searchMinerals.length > 1) {
+        return rainbowColors(matched.join('|'));
+      }
+      return null;
+    }
+
+    function rowText(row) {
+      const fields = [
+        row.geology_type,
+        row.geological_features,
+        row.geological_features_2,
+        row.kmz_name,
+        row.kmz_description,
+        row.kmz_resource_type,
+        row.gpx_name
+      ];
+      return fields.filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function isGoldRow(row) {
+      const text = rowText(row);
+      return /\bgold\b/.test(text) || /\bau\b/.test(text) || /\baurifer/.test(text);
+    }
+
+    function goldPointKey(lat, lon) {
+      return `${lat.toFixed(6)},${lon.toFixed(6)}`;
+    }
+
+    function goldKey(lat, lon) {
+      const gx = Math.floor(lon / GOLD_CELL_DEG);
+      const gy = Math.floor(lat / GOLD_CELL_DEG);
+      return `${gx},${gy}`;
+    }
+
+    function buildGoldGrid(points) {
+      goldGrid = new Map();
+      for (const p of points) {
+        const key = goldKey(p.lat, p.lon);
+        if (!goldGrid.has(key)) goldGrid.set(key, []);
+        goldGrid.get(key).push(p);
+      }
+    }
+
+    async function loadGoldPointsIfNeeded() {
+      if (goldPointsLoaded) return;
+      if (goldPointsLoading) return goldPointsLoading;
+      goldPointsLoading = (async () => {
+        const resp = await fetch('qld_geo_detailed_solid_centroids.csv');
+        if (!resp.ok) throw new Error('Failed to load CSV for gold points.');
+        const text = await resp.text();
+        const points = [];
+        const seen = new Set();
+        await new Promise((resolve) => {
+          Papa.parse(text, {
+            header: true,
+            skipEmptyLines: true,
+            step: function(row) {
+              const r = row.data;
+              const lat = parseFloat(r.latitude);
+              const lon = parseFloat(r.longitude);
+              if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+              if (isGoldRow(r)) {
+                const key = goldPointKey(lat, lon);
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  points.push({ lat, lon });
+                }
+              }
+            },
+            complete: resolve
+          });
+        });
+        goldPoints = points;
+        buildGoldGrid(points);
+        goldPointsLoaded = true;
+      })();
+      return goldPointsLoading;
+    }
+
+    function distancePointToSegmentInfo(pLat, pLon, aLat, aLon, bLat, bLon) {
+      const k = 111320;
+      const ref = (aLat + bLat) / 2;
+      const cos = Math.cos(ref * Math.PI / 180);
+      const ax = aLon * cos * k;
+      const ay = aLat * k;
+      const bx = bLon * cos * k;
+      const by = bLat * k;
+      const px = pLon * cos * k;
+      const py = pLat * k;
+      const dx = bx - ax;
+      const dy = by - ay;
+      if (dx === 0 && dy === 0) {
+        const dxp = px - ax;
+        const dyp = py - ay;
+        return { dist: Math.sqrt(dxp * dxp + dyp * dyp), t: 0 };
+      }
+      const t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+      const tt = Math.max(0, Math.min(1, t));
+      const cx = ax + tt * dx;
+      const cy = ay + tt * dy;
+      const ddx = px - cx;
+      const ddy = py - cy;
+      return { dist: Math.sqrt(ddx * ddx + ddy * ddy), t: tt };
+    }
+
+    function segmentLengthM(a, b) {
+      const k = 111320;
+      const ref = (a.lat + b.lat) / 2;
+      const cos = Math.cos(ref * Math.PI / 180);
+      const dx = (b.lng - a.lng) * cos * k;
+      const dy = (b.lat - a.lat) * k;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function interpolate(a, b, t) {
+      return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+    }
+
+    function extractLineParts(latlngs) {
+      const parts = [];
+      const stack = [latlngs];
+      const isLatLng = (p) => p && typeof p.lat === 'number' && typeof p.lng === 'number';
+      const isPair = (p) => Array.isArray(p) && p.length >= 2 && typeof p[0] === 'number' && typeof p[1] === 'number';
+      while (stack.length) {
+        const cur = stack.pop();
+        if (!cur) continue;
+        if (Array.isArray(cur)) {
+          if (cur.length > 0 && (isLatLng(cur[0]) || isPair(cur[0]))) {
+            parts.push(cur);
+          } else {
+            for (const item of cur) stack.push(item);
+          }
+        }
+      }
+      return parts;
+    }
+
+    function getGoldCandidatesForBBox(minLat, maxLat, minLon, maxLon) {
+      const gx0 = Math.floor(minLon / GOLD_CELL_DEG);
+      const gx1 = Math.floor(maxLon / GOLD_CELL_DEG);
+      const gy0 = Math.floor(minLat / GOLD_CELL_DEG);
+      const gy1 = Math.floor(maxLat / GOLD_CELL_DEG);
+      const out = [];
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gy = gy0; gy <= gy1; gy++) {
+          const pts = goldGrid.get(`${gx},${gy}`);
+          if (pts) out.push(...pts);
+        }
+      }
+      return out;
+    }
+
+    function buildGoldSegment(part, segIndex, t, lengthM) {
+      const coords = part;
+      const startSegA = coords[segIndex];
+      const startSegB = coords[segIndex + 1];
+      const startPoint = interpolate(startSegA, startSegB, t);
+      const path = [startPoint];
+      let remaining = lengthM;
+      let bendSegment = null;
+      let prevVec = null;
+      const toVec = (p1, p2) => {
+        const k = 111320;
+        const ref = (p1.lat + p2.lat) / 2;
+        const cos = Math.cos(ref * Math.PI / 180);
+        return { x: (p2.lng - p1.lng) * cos * k, y: (p2.lat - p1.lat) * k };
+      };
+
+      let segLen = segmentLengthM(startSegA, startSegB);
+      let remSeg = (1 - t) * segLen;
+      if (remSeg >= remaining) {
+        const endT = t + (remaining / segLen);
+        const endPoint = interpolate(startSegA, startSegB, endT);
+        path.push(endPoint);
+        return { path, bendSegment };
+      }
+      path.push(startSegB);
+      remaining -= remSeg;
+      let traveled = remSeg;
+      prevVec = toVec(startSegA, startSegB);
+
+      for (let i = segIndex + 1; i < coords.length - 1 && remaining > 0; i++) {
+        const a = coords[i];
+        const b = coords[i + 1];
+        const vec = toVec(a, b);
+        const segM = segmentLengthM(a, b);
+        if (!bendSegment && traveled <= BEND_SEARCH_M) {
+          const dot = prevVec.x * vec.x + prevVec.y * vec.y;
+          const mag1 = Math.hypot(prevVec.x, prevVec.y);
+          const mag2 = Math.hypot(vec.x, vec.y);
+          if (mag1 > 0 && mag2 > 0) {
+            const angle = Math.acos(Math.min(1, Math.max(-1, dot / (mag1 * mag2))));
+            if (angle > (BEND_ANGLE_DEG * Math.PI / 180)) {
+              bendSegment = [a, b];
+            }
+          }
+        }
+        prevVec = vec;
+        if (segM >= remaining) {
+          const endPoint = interpolate(a, b, remaining / segM);
+          path.push(endPoint);
+          remaining = 0;
+          break;
+        } else {
+          path.push(b);
+          remaining -= segM;
+          traveled += segM;
+        }
+      }
+      return { path, bendSegment };
+    }
+
+    function applyCreekGoldHighlights() {
+      if (!watercourseLayer || goldPoints.length === 0) return;
+      if (goldSegmentLayer) map.removeLayer(goldSegmentLayer);
+      if (bendLayer) map.removeLayer(bendLayer);
+      goldSegmentLayer = L.layerGroup().addTo(map);
+      bendLayer = L.layerGroup().addTo(map);
+
+      const dLat = GOLD_NEAR_M / 111320;
+      let highlightCount = 0;
+      const matchedGold = new Set();
+      watercourseLayer.eachLayer((layer) => {
+        const parts = extractLineParts(layer.getLatLngs());
+        for (const part of parts) {
+          for (let i = 0; i < part.length - 1; i++) {
+            const a = part[i];
+            const b = part[i + 1];
+            const midLat = (a.lat + b.lat) / 2;
+            const dLon = GOLD_NEAR_M / (111320 * Math.cos(midLat * Math.PI / 180));
+            const minLat = Math.min(a.lat, b.lat) - dLat;
+            const maxLat = Math.max(a.lat, b.lat) + dLat;
+            const minLon = Math.min(a.lng, b.lng) - dLon;
+            const maxLon = Math.max(a.lng, b.lng) + dLon;
+            const candidates = getGoldCandidatesForBBox(minLat, maxLat, minLon, maxLon);
+            if (candidates.length === 0) continue;
+            for (const p of candidates) {
+              const info = distancePointToSegmentInfo(p.lat, p.lon, a.lat, a.lng, b.lat, b.lng);
+              if (info.dist <= GOLD_NEAR_M) {
+                const seg = buildGoldSegment(part, i, info.t, GOLD_SEGMENT_M);
+                if (seg.path.length >= 2) {
+                  L.polyline(seg.path, {
+                    color: '#d4af37',
+                    weight: 3,
+                    opacity: 0.95,
+                    pane: 'goldPane'
+                  }).addTo(goldSegmentLayer);
+                  highlightCount += 1;
+                  matchedGold.add(goldPointKey(p.lat, p.lon));
+                }
+                if (seg.bendSegment) {
+                  L.polyline(seg.bendSegment, {
+                    color: '#ffe066',
+                    weight: 4,
+                    opacity: 0.95,
+                    pane: 'goldPane'
+                  }).addTo(bendLayer);
+                }
+                // only highlight once per segment for this pass
+                break;
+              }
+            }
+          }
+        }
+      });
+      if (highlightCount === 0) {
+        setStatus('No creek gold matches found within 50m of gold points.');
+      } else {
+        setStatus(`Creek gold highlights: ${highlightCount} segments from ${matchedGold.size} gold points.`);
+      }
+    }
+
+    function keywordMatch(text, keywords, mode) {
+      if (keywords.length === 0) return true;
+      if (mode === 'all') return keywords.every(k => text.includes(k));
+      return keywords.some(k => text.includes(k));
+    }
+
+    function updateLegend() {
+      const box = document.getElementById('legend');
+      const keywords = parseKeywords(document.getElementById('kwInput').value || '');
+      const searchMinerals = keywords.filter(k => k in mineralPalette);
+      const creeksOn = document.getElementById('toggleCreeks').checked;
+      const creekNamesOn = document.getElementById('toggleCreekNames').checked;
+      const roadsOn = document.getElementById('toggleRoads').checked;
+      const structuresOn = document.getElementById('toggleStructures').checked;
+      const satLabelsOn = document.getElementById('toggleSatLabels').checked;
+
+      const items = [];
+
+      const addCircle = (fill, stroke, label, extraStyle = '') => {
+        items.push(`<div class="legend-item"><span class="legend-swatch" style="background:${fill};border-color:${stroke};${extraStyle}"></span><span>${label}</span></div>`);
+      };
+      const addLine = (color, label, style = 'solid') => {
+        const cls = style === 'dashed' ? 'legend-line dashed' : (style === 'dotted' ? 'legend-line dotted' : 'legend-line');
+        items.push(`<div class="legend-item"><span class="${cls}" style="border-top-color:${color};"></span><span>${label}</span></div>`);
+      };
+
+      items.push('<div class="legend-title">Legend</div>');
+
+      if (searchMinerals.length === 0) {
+        addCircle('#8f5bd9', '#5a2a7a', 'Default location');
+        addCircle(mineralPalette.gold.fill, mineralPalette.gold.stroke, 'Gold (single-mineral points)');
+        addCircle(mineralPalette.ruby.fill, mineralPalette.ruby.stroke, 'Ruby (single-mineral points)');
+        addCircle(mineralPalette.sapphire.fill, mineralPalette.sapphire.stroke, 'Sapphire (single-mineral points)');
+      } else {
+        addCircle('#8f5bd9', '#5a2a7a', 'Other locations');
+        for (const m of searchMinerals) {
+          addCircle(mineralPalette[m].fill, mineralPalette[m].stroke, `${m[0].toUpperCase() + m.slice(1)} match`);
+        }
+        if (searchMinerals.length > 1) {
+          addCircle('linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #5f27cd)', '#3b2a1d', 'Multiple mineral match');
+        }
+      }
+
+      if (creeksOn) {
+        addLine('#2f6b5a', 'Creeks');
+        addLine('#d4af37', 'Gold creek segment (30m)');
+        addLine('#ffe066', 'First bend highlight');
+        if (creekNamesOn) {
+          items.push('<div class="legend-item"><span class="badge">Aa</span><span>Creek names</span></div>');
+        }
+      }
+
+      if (roadsOn) {
+        addLine('#7a6a50', 'Tracks / roads');
+      }
+
+      if (structuresOn) {
+        addLine('#7a2f2a', 'Fault');
+        addLine('#5a3a78', 'Dyke / dike', 'dashed');
+        addLine('#2f5a7a', 'Vein');
+        addLine('#3a6b4a', 'Fold / axial trace', 'dashed');
+        addLine('#7a5a2a', 'Bedding / trend', 'dotted');
+        addLine('#6b6b6b', 'Joint / fracture', 'dashed');
+        addLine('#2a5a5a', 'Lineament / shear');
+        addLine('#4b3f2a', 'Other structure');
+      }
+
+      if (satLabelsOn) {
+        items.push('<div class="legend-item"><span class="badge">L</span><span>Satellite labels</span></div>');
+      }
+
+      items.push('<div class="legend-note">Legend updates based on current toggles and keywords.</div>');
+      box.innerHTML = items.join('');
+    }
+
+    function setStatus(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+
+    function clearMap() {
+      markersLayer.clearLayers();
+      markerIndex.clear();
+      if (allClusterLayer) {
+        map.removeLayer(allClusterLayer);
+        allClusterLayer = null;
+      }
+      if (radiusCircle) {
+        map.removeLayer(radiusCircle);
+        radiusCircle = null;
+      }
+    }
+
+
+    async function loadGeoJsonParts(paths) {
+      const collections = await Promise.all(paths.map(async (path) => {
+        const resp = await fetch(path);
+        if (!resp.ok) throw new Error(`Missing ${path}`);
+        return await resp.json();
+      }));
+      const features = [];
+      for (const c of collections) {
+        if (c && Array.isArray(c.features)) features.push(...c.features);
+      }
+      return { type: 'FeatureCollection', features };
+    }
+
+    async function loadWatercourses() {
+      try {
+        const waterInput = document.getElementById('waterFileInput');
+        let data;
+        if (waterInput.files && waterInput.files[0]) {
+          const text = await waterInput.files[0].text();
+          data = JSON.parse(text);
+        } else {
+          data = await loadGeoJsonParts([
+            'watercourses_part1.geojson',
+            'watercourses_part2.geojson'
+          ]);
+        }
+        if (watercourseLayer) map.removeLayer(watercourseLayer);
+        watercourseLayer = L.geoJSON(data, {
+          style: {
+            color: '#2f6b5a',
+            weight: 1.2,
+            opacity: 0.7
+          },
+          pane: 'watercoursePane',
+          onEachFeature: (feature, layer) => {
+            const name = feature?.properties?.name;
+            if (!name || !creekNamesOn) return;
+            layer.bindTooltip(name, {
+              permanent: true,
+              direction: 'top',
+              opacity: 0.9,
+              className: 'creek-label'
+            });
+          }
+        }).addTo(map);
+        await loadGoldPointsIfNeeded();
+        applyCreekGoldHighlights();
+      } catch (err) {
+        setStatus('Watercourses not loaded (check file/server).');
+      }
+    }
+
+    async function loadRoads() {
+      try {
+        const data = await loadGeoJsonParts([
+          'roads_part1.geojson',
+          'roads_part2.geojson'
+        ]);
+        if (roadLayer) map.removeLayer(roadLayer);
+        roadLayer = L.geoJSON(data, {
+          style: (feature) => {
+            const cls = (feature?.properties?.roadclass || '').toLowerCase();
+            const track = (feature?.properties?.tracktype || '').toLowerCase();
+            let color = '#7a6a50';
+            let weight = 1.2;
+            if (cls.includes('major') || cls.includes('highway')) {
+              color = '#5b4b35';
+              weight = 2.2;
+            } else if (track) {
+              color = '#8a7a61';
+              weight = 1.0;
+            }
+            return { color, weight, opacity: 0.75 };
+          },
+          onEachFeature: (feature, layer) => {
+            const name = feature?.properties?.name;
+            const access = feature?.properties?.access;
+            const surface = feature?.properties?.surface;
+            const label = [name, access, surface].filter(Boolean).join(' — ');
+            if (label) {
+              layer.bindTooltip(label, {
+                sticky: true,
+                direction: 'top',
+                opacity: 0.9
+              });
+            }
+          }
+        }).addTo(map);
+      } catch (err) {
+        setStatus('Roads not loaded (check file/server).');
+      }
+    }
+
+    function getSearchParams() {
+      const lat = parseFloat(document.getElementById('latInput').value);
+      const lon = parseFloat(document.getElementById('lonInput').value);
+      const radiusKm = parseFloat(document.getElementById('radiusInput').value || '0');
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+      return { lat, lon, radiusKm };
+    }
+
+    function featureInBBox(feature, minLat, maxLat, minLon, maxLon) {
+      const coords = feature?.geometry?.coordinates;
+      if (!coords) return false;
+      const stack = [coords];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (typeof cur[0] === 'number') {
+          const lon = cur[0];
+          const lat = cur[1];
+          if (lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon) {
+            return true;
+          }
+        } else {
+          for (const c of cur) stack.push(c);
+        }
+      }
+      return false;
+    }
+
+    function structureStyle(feature) {
+      const t = (feature?.properties?.type || '').toLowerCase();
+      const d = (feature?.properties?.desc || '').toLowerCase();
+      const text = `${t} ${d}`;
+      if (text.includes('fault')) return { color: '#7a2f2a', weight: 2.0, opacity: 0.9 };
+      if (text.includes('dyke') || text.includes('dike')) return { color: '#5a3a78', weight: 1.6, opacity: 0.9, dashArray: '4,3' };
+      if (text.includes('vein')) return { color: '#2f5a7a', weight: 1.4, opacity: 0.85 };
+      if (text.includes('fold') || text.includes('axial')) return { color: '#3a6b4a', weight: 1.6, opacity: 0.85, dashArray: '6,4' };
+      if (text.includes('bedding') || text.includes('trend') || text.includes('layer')) return { color: '#7a5a2a', weight: 1.2, opacity: 0.75, dashArray: '2,6' };
+      if (text.includes('joint') || text.includes('fracture')) return { color: '#6b6b6b', weight: 1.0, opacity: 0.65, dashArray: '2,4' };
+      if (text.includes('lineament') || text.includes('shear')) return { color: '#2a5a5a', weight: 1.4, opacity: 0.8 };
+      return { color: '#4b3f2a', weight: 1.0, opacity: 0.6 };
+    }
+
+    async function loadStructures() {
+      try {
+        if (!structuresData) {
+          if (!structuresLoading) {
+            structuresLoading = loadGeoJsonParts([
+              'structures_part1.geojson',
+              'structures_part2.geojson'
+            ])
+              .then((data) => {
+                structuresData = data;
+                return data;
+              });
+          }
+          await structuresLoading;
+        }
+
+        let data = structuresData;
+        const search = lastSearch || getSearchParams();
+        if (search && search.radiusKm > 0) {
+          const dLat = search.radiusKm / 111.32;
+          const dLon = search.radiusKm / (111.32 * Math.cos(search.lat * Math.PI / 180));
+          const minLat = search.lat - dLat;
+          const maxLat = search.lat + dLat;
+          const minLon = search.lon - dLon;
+          const maxLon = search.lon + dLon;
+          const filtered = data.features.filter((f) => featureInBBox(f, minLat, maxLat, minLon, maxLon));
+          data = { type: 'FeatureCollection', features: filtered };
+        }
+        if (structureLayer) map.removeLayer(structureLayer);
+        structureLayer = L.geoJSON(data, {
+          style: structureStyle,
+          onEachFeature: (feature, layer) => {
+            const name = feature?.properties?.name;
+            const desc = feature?.properties?.desc;
+            const type = feature?.properties?.type;
+            const label = [name, desc, type].filter(Boolean).join(' — ');
+            if (label) {
+              layer.bindTooltip(label, {
+                sticky: true,
+                direction: 'top',
+                opacity: 0.9
+              });
+            }
+          }
+        }).addTo(map);
+      } catch (err) {
+        setStatus('Structures not loaded (check file/server).');
+      }
+    }
+
+    async function loadCsvText() {
+      const parts = [
+        'qld_geo_detailed_solid_centroids_part1.csv',
+        'qld_geo_detailed_solid_centroids_part2.csv'
+      ];
+      const texts = await Promise.all(parts.map(async (p) => {
+        const resp = await fetch(p);
+        if (!resp.ok) throw new Error('Failed to load CSV. Run a local server from the folder.');
+        return await resp.text();
+      }));
+      const t1 = texts[0];
+      const t2 = texts[1];
+      const idx = t2.indexOf('\n');
+      const t2Body = idx >= 0 ? t2.slice(idx + 1) : '';
+      return t1.trimEnd() + '\n' + t2Body;
+    }
+
+    function buildPopupHtml(row, distKm) {
+      const lat = parseFloat(row.latitude);
+      const lon = parseFloat(row.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return '';
+      const title = row.kmz_name || row.gpx_name || row.geology_type || 'Location';
+      const geologyType = row.geology_type ? `<div><strong>Geology Type:</strong> ${row.geology_type}</div>` : '';
+      const surfaceType = row.surface_geology_type || '';
+      const surfaceDesc = row.surface_geological_features || row.geological_features || '';
+      const solidType = row.solid_geology_type || '';
+      const solidDesc = row.solid_geological_features || row.geological_features_2 || '';
+      const surfaceTypeHtml = surfaceType ? `<div><strong>Surface Type:</strong> ${surfaceType}</div>` : '';
+      const solidTypeHtml = solidType ? `<div><strong>Solid Type:</strong> ${solidType}</div>` : '';
+      const bedrock2 = solidDesc ? `<div><strong>Solid Geology:</strong> ${solidDesc}</div>` : '';
+      return `
+        <strong>${title}</strong><br/>
+        Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}<br/>
+        ${row.kmz_resource_type ? '<span class="badge">' + row.kmz_resource_type + '</span>' : ''}
+        ${geologyType}
+        ${surfaceTypeHtml}
+        ${solidTypeHtml}
+        ${bedrock2}
+        ${distKm != null ? '<div>Distance: ' + distKm.toFixed(2) + ' km</div>' : ''}
+      `;
+    }
+
+    function createMarker(row, distKm, colorInfo) {
+      const lat = parseFloat(row.latitude);
+      const lon = parseFloat(row.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+      const popup = buildPopupHtml(row, distKm);
+      if (!popup) return null;
+      const marker = L.circleMarker([lat, lon], {
+        radius: 7,
+        color: colorInfo?.stroke || '#5a2a7a',
+        weight: 1,
+        fillColor: colorInfo?.fill || '#8f5bd9',
+        fillOpacity: 0.85,
+        interactive: true,
+        pane: 'markerPane'
+      }).bindPopup(popup);
+      marker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        marker.openPopup();
+      });
+      return marker;
+    }
+
+    function addMarker(row, distKm, colorInfo) {
+      const marker = createMarker(row, distKm, colorInfo);
+      if (!marker) return;
+      const lat = parseFloat(row.latitude);
+      const lon = parseFloat(row.longitude);
+      marker.addTo(markersLayer);
+      const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+      if (!markerIndex.has(key)) markerIndex.set(key, []);
+      markerIndex.get(key).push(marker);
+    }
+
+    function renderResults(rows) {
+      const box = document.getElementById('results');
+      if (rows.length === 0) {
+        box.innerHTML = '<div class="small">No matches.</div>';
+        return;
+      }
+      const items = rows.slice(0, 200).map(r => {
+        const name = r.kmz_name || r.gpx_name || r.geology_type || 'Location';
+        const res = r.kmz_resource_type ? ' — ' + r.kmz_resource_type : '';
+        const lat = parseFloat(r.latitude);
+        const lon = parseFloat(r.longitude);
+        const key = (!Number.isNaN(lat) && !Number.isNaN(lon)) ? `${lat.toFixed(6)},${lon.toFixed(6)}` : '';
+        return `<div class="result-item" data-key="${key}" data-lat="${lat}" data-lon="${lon}">${name}${res}</div>`;
+      }).join('');
+      box.innerHTML = `<div class="small">Showing ${Math.min(rows.length, 200)} of ${rows.length} matches</div>` + items;
+    }
+
+    document.getElementById('results').addEventListener('click', (e) => {
+      const item = e.target.closest('.result-item');
+      if (!item) return;
+      const lat = parseFloat(item.dataset.lat);
+      const lon = parseFloat(item.dataset.lon);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+      map.flyTo([lat, lon], Math.max(map.getZoom(), 11), { animate: true, duration: 0.6 });
+      const key = item.dataset.key;
+      if (key && markerIndex.has(key)) {
+        const markers = markerIndex.get(key);
+        if (markers && markers.length) {
+          markers[0].openPopup();
+        }
+      }
+    });
+
+    document.getElementById('toggleCreeks').addEventListener('change', async (e) => {
+      if (e.target.checked) {
+        await loadWatercourses();
+      } else {
+        if (watercourseLayer) map.removeLayer(watercourseLayer);
+        if (goldSegmentLayer) map.removeLayer(goldSegmentLayer);
+        if (bendLayer) map.removeLayer(bendLayer);
+      }
+      updateLegend();
+    });
+
+    document.getElementById('toggleRoads').addEventListener('change', async (e) => {
+      if (e.target.checked) {
+        await loadRoads();
+      } else if (roadLayer) {
+        map.removeLayer(roadLayer);
+      }
+      updateLegend();
+    });
+
+    function applyCreekNameLabels() {
+      if (!watercourseLayer) return;
+      const search = lastSearch || getSearchParams();
+      if (!search || !(search.radiusKm > 0)) {
+        watercourseLayer.eachLayer((layer) => {
+          if (layer.getTooltip()) layer.unbindTooltip();
+        });
+        return;
+      }
+      const dLat = search.radiusKm / 111.32;
+      const dLon = search.radiusKm / (111.32 * Math.cos(search.lat * Math.PI / 180));
+      const minLat = search.lat - dLat;
+      const maxLat = search.lat + dLat;
+      const minLon = search.lon - dLon;
+      const maxLon = search.lon + dLon;
+
+      watercourseLayer.eachLayer((layer) => {
+        if (layer.getTooltip()) layer.unbindTooltip();
+        const name = layer?.feature?.properties?.name;
+        if (!creekNamesOn || !name) return;
+        const bounds = layer.getBounds();
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+        const intersects = !(ne.lat < minLat || sw.lat > maxLat || ne.lng < minLon || sw.lng > maxLon);
+        if (intersects) {
+          layer.bindTooltip(name, {
+            permanent: true,
+            direction: 'top',
+            opacity: 0.9,
+            className: 'creek-label'
+          });
+        }
+      });
+    }
+
+    document.getElementById('toggleCreekNames').addEventListener('change', async (e) => {
+      creekNamesOn = e.target.checked;
+      const creeksToggle = document.getElementById('toggleCreeks');
+      if (creekNamesOn && !creeksToggle.checked) {
+        creeksToggle.checked = true;
+      }
+      if (watercourseLayer) {
+        applyCreekNameLabels();
+      } else if (creeksToggle.checked) {
+        await loadWatercourses();
+      }
+      updateLegend();
+    });
+
+    document.getElementById('toggleSatLabels').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        esriLabels.addTo(map);
+      } else if (map.hasLayer(esriLabels)) {
+        map.removeLayer(esriLabels);
+      }
+      updateLegend();
+    });
+
+    document.getElementById('toggleStructures').addEventListener('change', async (e) => {
+      if (e.target.checked) {
+        await loadStructures();
+      } else if (structureLayer) {
+        map.removeLayer(structureLayer);
+      }
+      updateLegend();
+    });
+
+    document.getElementById('runBtn').addEventListener('click', async () => {
+      const lat = parseFloat(document.getElementById('latInput').value);
+      const lon = parseFloat(document.getElementById('lonInput').value);
+      const radiusKm = parseFloat(document.getElementById('radiusInput').value || '0');
+      const keywords = parseKeywords(document.getElementById('kwInput').value);
+      const mode = document.getElementById('matchMode').value;
+
+      if (Number.isNaN(lat) || Number.isNaN(lon)) {
+        setStatus('Please enter a valid latitude and longitude.');
+        return;
+      }
+
+      setStatus('Loading CSV and filtering...');
+      clearMap();
+      lastSearch = { lat, lon, radiusKm };
+
+      let csvText;
+      try {
+        csvText = await loadCsvText();
+      } catch (err) {
+        setStatus(err.message);
+        return;
+      }
+
+      const results = [];
+      const maxMarkers = 5000;
+
+      const deltaLat = radiusKm / 111.32;
+      const deltaLon = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180));
+      const useBounds = radiusKm > 0;
+
+      if (document.getElementById('toggleCreeks').checked) {
+        await loadWatercourses();
+      } else {
+        if (watercourseLayer) map.removeLayer(watercourseLayer);
+        if (goldSegmentLayer) map.removeLayer(goldSegmentLayer);
+        if (bendLayer) map.removeLayer(bendLayer);
+      }
+
+      if (document.getElementById('toggleRoads').checked) {
+        await loadRoads();
+      } else if (roadLayer) {
+        map.removeLayer(roadLayer);
+      }
+
+      if (document.getElementById('toggleStructures').checked) {
+        await loadStructures();
+      } else if (structureLayer) {
+        map.removeLayer(structureLayer);
+      }
+
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        step: function(row) {
+          const r = row.data;
+          const rLat = parseFloat(r.latitude);
+          const rLon = parseFloat(r.longitude);
+          if (Number.isNaN(rLat) || Number.isNaN(rLon)) return;
+
+          // bounding box quick filter for area of interest
+          if (useBounds) {
+            if (rLat < lat - deltaLat || rLat > lat + deltaLat) return;
+            if (rLon < lon - deltaLon || rLon > lon + deltaLon) return;
+          }
+
+          const text = rowText(r);
+          if (!keywordMatch(text, keywords, mode)) return;
+
+          const distKm = radiusKm > 0 ? haversineKm(lat, lon, rLat, rLon) : null;
+          if (radiusKm > 0 && distKm > radiusKm) return;
+
+          results.push(r);
+          if (results.length <= maxMarkers) {
+            const colorInfo = pickMarkerColors(r, keywords);
+            addMarker(r, distKm, colorInfo);
+          }
+        },
+        complete: function() {
+          setStatus(`Found ${results.length} matches. Showing up to ${maxMarkers} markers.`);
+          renderResults(results);
+          updateLegend();
+
+          map.setView([lat, lon], Math.max(6, Math.min(13, Math.floor(12 - Math.log(radiusKm + 1)) )));
+          if (radiusKm > 0) {
+            radiusCircle = L.circle([lat, lon], { radius: radiusKm * 1000, color: '#0b6bcb', weight: 1, fillOpacity: 0.05 }).addTo(map);
+          }
+        }
+      });
+    });
+
+    map.on('mousemove', (e) => {
+      if (!mouseTracking) return;
+      document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
+      document.getElementById('lonInput').value = e.latlng.lng.toFixed(6);
+    });
+
+    map.on('click', (e) => {
+      if (!mouseTracking) return;
+      document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
+      document.getElementById('lonInput').value = e.latlng.lng.toFixed(6);
+      mouseTracking = false;
+      setStatus('Coordinates pinned from map click.');
+    });
+
+    async function testAllMarkers() {
+      const btn = document.getElementById('testAllBtn');
+      btn.disabled = true;
+      setStatus('Loading CSV and plotting all markers (clustered)...');
+      document.getElementById('results').innerHTML = '<div class="small">Test mode: showing all markers (clustered).</div>';
+      clearMap();
+      if (allClusterLayer) {
+        map.removeLayer(allClusterLayer);
+        allClusterLayer = null;
+      }
+
+      let csvText;
+      try {
+        csvText = await loadCsvText();
+      } catch (err) {
+        setStatus(err.message);
+        btn.disabled = false;
+        return;
+      }
+
+      const cluster = L.markerClusterGroup({
+        chunkedLoading: true,
+        chunkDelay: 50,
+        chunkInterval: 200,
+        showCoverageOnHover: false,
+        disableClusteringAtZoom: 12
+      });
+
+      let total = 0;
+      let valid = 0;
+      let invalid = 0;
+      const reportEvery = 10000;
+
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        step: function(row) {
+          total += 1;
+          const r = row.data;
+          const lat = parseFloat(r.latitude);
+          const lon = parseFloat(r.longitude);
+          if (Number.isNaN(lat) || Number.isNaN(lon)) {
+            invalid += 1;
+            return;
+          }
+          valid += 1;
+          const colorInfo = pickMarkerColors(r, []);
+          const marker = createMarker(r, null, colorInfo);
+          if (marker) {
+            cluster.addLayer(marker);
+          }
+          if (valid % reportEvery === 0) {
+            setStatus(`Plotted ${valid.toLocaleString()} markers...`);
+          }
+        },
+        complete: function() {
+          allClusterLayer = cluster;
+          map.addLayer(allClusterLayer);
+          const bounds = allClusterLayer.getBounds();
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [20, 20] });
+          }
+          setStatus(`Test mode: ${valid.toLocaleString()} markers plotted (${invalid.toLocaleString()} invalid rows).`);
+          updateLegend();
+          btn.disabled = false;
+        },
+        error: function() {
+          setStatus('Failed to parse CSV for test mode.');
+          btn.disabled = false;
+        }
+      });
+    }
+
+    document.getElementById('testAllBtn').addEventListener('click', testAllMarkers);
+    document.getElementById('kwInput').addEventListener('input', updateLegend);
+    document.getElementById('matchMode').addEventListener('change', updateLegend);
+
+    document.getElementById('open3dBtn').addEventListener('click', () => {
+      const lat = document.getElementById('latInput').value.trim();
+      const lon = document.getElementById('lonInput').value.trim();
+      const radius = document.getElementById('radiusInput').value.trim();
+      const keywords = document.getElementById('kwInput').value.trim();
+      const mode = document.getElementById('matchMode').value;
+      const creeks = document.getElementById('toggleCreeks').checked ? '1' : '0';
+      const labels = map.hasLayer(esriLabels) ? '1' : '0';
+
+      const params = new URLSearchParams();
+      params.set('lat', lat);
+      params.set('lon', lon);
+      params.set('radius', radius);
+      params.set('keywords', keywords);
+      params.set('mode', mode);
+      params.set('creeks', creeks);
+      params.set('base', currentBaseName);
+      params.set('labels', labels);
+
+      window.open(`map_3d.html?${params.toString()}`, '_blank');
+    });
+
+    updateLegend();
+  </script>
+</body>
+</html>

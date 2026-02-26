@@ -1,0 +1,449 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoBin 3D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bentham&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #efe5d0;
+      --panel: #f8f1e3;
+      --text: #2b2016;
+      --muted: #6f5a44;
+      --accent: #5e6b3a;
+      --border: #d6c3a3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Bentham", "Times New Roman", serif;
+      background: radial-gradient(1200px 800px at 20% 10%, #f7efde 0%, #efe0c4 55%, #e8d7b9 100%);
+      color: var(--text);
+    }
+    #map3d {
+      width: 100vw;
+      height: 100vh;
+    }
+    .hud {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 8px;
+      box-shadow: 0 8px 22px rgba(44, 30, 12, 0.12);
+      z-index: 5;
+      max-width: 320px;
+    }
+    .hud h1 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+    }
+    .hud .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hud .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .hud button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map3d"></div>
+  <div class="hud">
+    <h1>GeoBin 3D</h1>
+    <div id="status" class="small">Loading…</div>
+    <div class="row">
+      <button id="resetView">Reset View</button>
+      <button id="toggleCreeks">Toggle Creeks</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const lat = parseFloat(params.get('lat') || '-17.5');
+    const lon = parseFloat(params.get('lon') || '145.5');
+    const radiusKm = parseFloat(params.get('radius') || '50');
+    const keywordsRaw = params.get('keywords') || '';
+    const mode = params.get('mode') || 'any';
+    const creeksOn = params.get('creeks') === '1';
+    const baseName = params.get('base') || 'Watercolor (Old World)';
+    const labelsOn = params.get('labels') === '1';
+
+    const statusEl = document.getElementById('status');
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    function rasterStyle(tiles, attribution) {
+      return {
+        version: 8,
+        sources: {
+          raster: {
+            type: 'raster',
+            tiles: [tiles],
+            tileSize: 256,
+            attribution: attribution
+          }
+        },
+        layers: [
+          { id: 'raster', type: 'raster', source: 'raster' }
+        ]
+      };
+    }
+
+    function pickStyle(name) {
+      if (name === 'Satellite') {
+        return rasterStyle(
+          'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+        );
+      }
+      if (name === 'OpenTerrain') {
+        return rasterStyle(
+          'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+          'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'
+        );
+      }
+      if (name === 'OpenStreetMap') {
+        return rasterStyle(
+          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          '&copy; OpenStreetMap contributors'
+        );
+      }
+      return rasterStyle(
+        'https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg',
+        '&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors'
+      );
+    }
+
+    const map = new maplibregl.Map({
+      container: 'map3d',
+      style: pickStyle(baseName),
+      center: [lon, lat],
+      zoom: 8,
+      pitch: 55,
+      bearing: -10,
+      antialias: true
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
+
+    function parseKeywords(raw) {
+      return raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    }
+
+    const mineralPalette = {
+      gold: { fill: '#d4af37', stroke: '#8b6b20' },
+      ruby: { fill: '#b11226', stroke: '#6b0a1a' },
+      sapphire: { fill: '#1f5aa6', stroke: '#12305f' }
+    };
+
+    function findMinerals(text) {
+      const t = (text || '').toLowerCase();
+      const hits = [];
+      for (const m of Object.keys(mineralPalette)) {
+        const re = new RegExp(`\\b${m}\\b`);
+        if (re.test(t)) hits.push(m);
+      }
+      return hits;
+    }
+
+    function hashString(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h) + str.charCodeAt(i);
+        h |= 0;
+      }
+      return h;
+    }
+
+    function rainbowColors(seed) {
+      const hue = Math.abs(hashString(seed)) % 360;
+      return {
+        fill: `hsl(${hue}, 70%, 55%)`,
+        stroke: `hsl(${(hue + 40) % 360}, 70%, 35%)`
+      };
+    }
+
+    function pickMarkerColors(row, searchKeywords) {
+      const searchMinerals = searchKeywords.filter(k => k in mineralPalette);
+      const rowMinerals = findMinerals(rowText(row));
+      if (searchMinerals.length === 0) {
+        if (rowMinerals.length === 1) return mineralPalette[rowMinerals[0]];
+        return null;
+      }
+      const matched = rowMinerals.filter(m => searchMinerals.includes(m));
+      if (matched.length === 1) return mineralPalette[matched[0]];
+      if (matched.length > 1 && searchMinerals.length > 1) {
+        return rainbowColors(matched.join('|'));
+      }
+      return null;
+    }
+
+    function rowText(row) {
+      const fields = [
+        row.geology_type,
+        row.geological_features,
+        row.geological_features_2,
+        row.kmz_name,
+        row.kmz_description,
+        row.kmz_resource_type,
+        row.gpx_name
+      ];
+      return fields.filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function keywordMatch(text, keywords, mode) {
+      if (keywords.length === 0) return true;
+      if (mode === 'all') return keywords.every(k => text.includes(k));
+      return keywords.some(k => text.includes(k));
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    async function loadCsvText() {
+      const parts = [
+        'qld_geo_detailed_solid_centroids_part1.csv',
+        'qld_geo_detailed_solid_centroids_part2.csv'
+      ];
+      const texts = await Promise.all(parts.map(async (p) => {
+        const resp = await fetch(p);
+        if (!resp.ok) throw new Error('Failed to load CSV. Run a local server from the folder.');
+        return await resp.text();
+      }));
+      const t1 = texts[0];
+      const t2 = texts[1];
+      const idx = t2.indexOf('\n');
+      const t2Body = idx >= 0 ? t2.slice(idx + 1) : '';
+      return t1.trimEnd() + '\n' + t2Body;
+    }
+
+    async function addWatercourses() {
+      const parts = [
+        'watercourses_part1.geojson',
+        'watercourses_part2.geojson'
+      ];
+      const collections = await Promise.all(parts.map(async (p) => {
+        const resp = await fetch(p);
+        if (!resp.ok) return null;
+        return await resp.json();
+      }));
+      const features = [];
+      for (const c of collections) {
+        if (c && Array.isArray(c.features)) features.push(...c.features);
+      }
+      const data = { type: 'FeatureCollection', features };
+      if (map.getSource('watercourses')) {
+        map.getSource('watercourses').setData(data);
+        map.setLayoutProperty('watercourses-line', 'visibility', 'visible');
+        map.setLayoutProperty('watercourses-label', 'visibility', 'visible');
+        return;
+      }
+      map.addSource('watercourses', { type: 'geojson', data });
+      map.addLayer({
+        id: 'watercourses-line',
+        type: 'line',
+        source: 'watercourses',
+        paint: {
+          'line-color': '#2f6b5a',
+          'line-width': 1
+        }
+      });
+      map.addLayer({
+        id: 'watercourses-label',
+        type: 'symbol',
+        source: 'watercourses',
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': ['get', 'name'],
+          'text-size': 11,
+          'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular']
+        },
+        paint: {
+          'text-color': '#2b2016',
+          'text-halo-color': '#f8f1e3',
+          'text-halo-width': 1
+        },
+        minzoom: 9
+      });
+    }
+
+    function setWatercourseVisibility(visible) {
+      if (!map.getLayer('watercourses-line')) return;
+      const v = visible ? 'visible' : 'none';
+      map.setLayoutProperty('watercourses-line', 'visibility', v);
+      map.setLayoutProperty('watercourses-label', 'visibility', v);
+    }
+
+    map.on('load', async () => {
+      // Terrain source (free demo)
+      map.addSource('terrain', {
+        type: 'raster-dem',
+        url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+        tileSize: 256
+      });
+      map.setTerrain({ source: 'terrain', exaggeration: 1.4 });
+
+      if (baseName === 'Satellite' && labelsOn) {
+        map.addSource('sat-labels', {
+          type: 'raster',
+          tiles: ['https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+          tileSize: 256
+        });
+        map.addLayer({ id: 'sat-labels', type: 'raster', source: 'sat-labels', paint: { 'raster-opacity': 0.8 } });
+      }
+
+      if (creeksOn) {
+        await addWatercourses();
+      }
+
+      let csvText;
+      try {
+        csvText = await loadCsvText();
+      } catch (err) {
+        setStatus(err.message);
+        return;
+      }
+
+      const keywords = parseKeywords(keywordsRaw);
+      const features = [];
+      const maxMarkers = 5000;
+
+      const deltaLat = radiusKm / 111.32;
+      const deltaLon = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180));
+      const useBounds = radiusKm > 0;
+
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        step: function(row) {
+          const r = row.data;
+          const rLat = parseFloat(r.latitude);
+          const rLon = parseFloat(r.longitude);
+          if (Number.isNaN(rLat) || Number.isNaN(rLon)) return;
+
+          if (useBounds) {
+            if (rLat < lat - deltaLat || rLat > lat + deltaLat) return;
+            if (rLon < lon - deltaLon || rLon > lon + deltaLon) return;
+          }
+
+          const text = rowText(r);
+          if (!keywordMatch(text, keywords, mode)) return;
+
+          const distKm = radiusKm > 0 ? haversineKm(lat, lon, rLat, rLon) : null;
+          if (radiusKm > 0 && distKm > radiusKm) return;
+
+          if (features.length >= maxMarkers) return;
+
+          const colorInfo = pickMarkerColors(r, keywords);
+          const fill = colorInfo?.fill || '#8f5bd9';
+          const stroke = colorInfo?.stroke || '#5a2a7a';
+          features.push({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [rLon, rLat] },
+            properties: {
+              title: r.kmz_name || r.gpx_name || r.geology_type || 'Location',
+              geology_type: r.geology_type || '',
+              geological_features: r.geological_features || '',
+              geological_features_2: r.geological_features_2 || '',
+              kmz_resource_type: r.kmz_resource_type || '',
+              distance_km: distKm != null ? distKm.toFixed(2) : '',
+              color: fill,
+              stroke: stroke
+            }
+          });
+        },
+        complete: function() {
+          const geojson = { type: 'FeatureCollection', features };
+          map.addSource('points', { type: 'geojson', data: geojson });
+          map.addLayer({
+            id: 'points-circle',
+            type: 'circle',
+            source: 'points',
+            paint: {
+              'circle-radius': 4,
+              'circle-color': ['get', 'color'],
+              'circle-stroke-color': ['get', 'stroke'],
+              'circle-stroke-width': 1,
+              'circle-opacity': 0.85
+            }
+          });
+
+          map.on('click', 'points-circle', (e) => {
+            const f = e.features && e.features[0];
+            if (!f) return;
+            const p = f.properties || {};
+            const html = `
+              <strong>${p.title || 'Location'}</strong><br/>
+              ${p.kmz_resource_type ? '<span style="display:inline-block;margin-top:4px;padding:2px 6px;border:1px solid #d2b48c;border-radius:999px;background:#efe0c2;">' + p.kmz_resource_type + '</span><br/>' : ''}
+              ${p.geology_type ? '<div><strong>Geology Type:</strong> ' + p.geology_type + '</div>' : ''}
+              ${p.geological_features ? '<div><strong>Bedrock:</strong> ' + p.geological_features + '</div>' : ''}
+              ${p.geological_features_2 ? '<div><strong>Bedrock 2:</strong> ' + p.geological_features_2 + '</div>' : ''}
+              ${p.distance_km ? '<div>Distance: ' + p.distance_km + ' km</div>' : ''}
+            `;
+            new maplibregl.Popup()
+              .setLngLat(f.geometry.coordinates)
+              .setHTML(html)
+              .addTo(map);
+          });
+
+          map.on('mouseenter', 'points-circle', () => {
+            map.getCanvas().style.cursor = 'pointer';
+          });
+          map.on('mouseleave', 'points-circle', () => {
+            map.getCanvas().style.cursor = '';
+          });
+
+          const zoom = Math.max(6, Math.min(12, Math.floor(12 - Math.log(radiusKm + 1)) ));
+          map.easeTo({ center: [lon, lat], zoom, pitch: 55, bearing: -10 });
+          setStatus(`Loaded ${features.length} locations.`);
+        }
+      });
+    });
+
+    document.getElementById('resetView').addEventListener('click', () => {
+      const zoom = Math.max(6, Math.min(12, Math.floor(12 - Math.log(radiusKm + 1)) ));
+      map.easeTo({ center: [lon, lat], zoom, pitch: 55, bearing: -10 });
+    });
+
+    document.getElementById('toggleCreeks').addEventListener('click', async () => {
+      if (!map.getLayer('watercourses-line')) {
+        await addWatercourses();
+        setWatercourseVisibility(true);
+        return;
+      }
+      const vis = map.getLayoutProperty('watercourses-line', 'visibility');
+      setWatercourseVisibility(vis !== 'visible');
+    });
+  </script>
+</body>
+</html>
